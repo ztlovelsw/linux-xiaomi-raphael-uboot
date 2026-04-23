@@ -8,8 +8,8 @@ then
   exit
 fi
 
-# 设置 Debian 版本
-DEBIAN_VERSION="trixie"
+# 设置 Ubuntu 版本
+UBUNTU_VERSION="noble"
 
 # 创建根文件系统镜像
 truncate -s 6G rootfs.img
@@ -18,7 +18,7 @@ mkdir rootdir
 mount -o loop rootfs.img rootdir
 
 # debootstrap生成镜像
-debootstrap --arch=arm64 $DEBIAN_VERSION rootdir https://mirrors.tuna.tsinghua.edu.cn/debian/
+debootstrap --arch=arm64 $UBUNTU_VERSION rootdir https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/
 
 # 挂载boot
 mount -o loop xiaomi-k20pro-boot.img rootdir/boot
@@ -41,10 +41,10 @@ export DEBIAN_FRONTEND=noninteractive
 
 # 配置清华镜像源
 cat > rootdir/etc/apt/sources.list << 'EOF'
-deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free non-free-firmware
-deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free non-free-firmware
-deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-backports main contrib non-free non-free-firmware
-deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ noble main restricted universe multiverse
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ noble-updates main restricted universe multiverse
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ noble-backports main restricted universe multiverse
+deb http://ports.ubuntu.com/ubuntu-ports/ noble-security main restricted universe multiverse
 EOF
 
 # 更新系统
@@ -59,6 +59,34 @@ chroot rootdir apt install -y rmtfs protection-domain-mapper tqftpserv
 
 # 安装语言包和设置默认语言为简体中文
 chroot rootdir apt install -y locales locales-all tzdata
+chroot rootdir apt install -y \
+	fonts-arphic-uming \
+	language-pack-gnome-zh-hans-base \
+	language-pack-zh-hans-base \
+	language-pack-zh-hans \
+	language-pack-gnome-zh-hans \
+	fonts-arphic-ukai \
+	fonts-noto-cjk \
+	fonts-noto-cjk-extra \
+	gnome-user-docs-zh-hans \
+	libopencc-data \
+	libmarisa0 \
+	libopencc1.1 \
+	libpinyin-data \
+	libpinyin15 \
+	ibus-libpinyin \
+	ibus-table \
+	ibus-table-wubi \
+	language-pack-gnome-zh-hant-base \
+	language-pack-zh-hant-base \
+	language-pack-zh-hant \
+	language-pack-gnome-zh-hant \
+	libchewing3-data \
+	libchewing3 \
+	ibus-chewing \
+	ibus-table-cangjie3 \
+	ibus-table-cangjie5 \
+	ibus-table-quick-classic
 	
 chroot rootdir sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen
 chroot rootdir locale-gen zh_CN.UTF-8
@@ -78,9 +106,6 @@ chroot rootdir dpkg -i /tmp/firmware-xiaomi-raphael.deb
 chroot rootdir dpkg -i /tmp/alsa-xiaomi-raphael.deb
 rm rootdir/tmp/*-xiaomi-raphael.deb
 chroot rootdir update-initramfs -c -k all
-
-# 启用 Phosh 服务
-chroot rootdir systemctl enable phosh
 
 # 配置 NCM
 cat > rootdir/etc/dnsmasq.d/usb-ncm.conf << 'EOF'
@@ -140,6 +165,9 @@ WantedBy=multi-user.target
 EOF
 chroot rootdir systemctl enable usb-ncm
 
+# 启用 Phosh 服务
+chroot rootdir systemctl enable phosh
+
 # 配置 fstab
 echo "PARTLABEL=userdata / ext4 errors=remount-ro,x-systemd.growfs 0 1
 PARTLABEL=cache /boot vfat umask=0077 0 1" | tee rootdir/etc/fstab
@@ -152,6 +180,9 @@ echo "user:1234" | chroot rootdir chpasswd
 # 允许SSH root登录
 echo "PermitRootLogin yes" | tee -a rootdir/etc/ssh/sshd_config
 echo "PasswordAuthentication yes" | tee -a rootdir/etc/ssh/sshd_config
+
+# 彻底禁用系统休眠
+chroot rootdir systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
 
 # 清理 apt 缓存
 chroot rootdir apt clean

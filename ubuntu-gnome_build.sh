@@ -8,17 +8,17 @@ then
   exit
 fi
 
-# 设置 Debian 版本
-DEBIAN_VERSION="trixie"
+# 设置 Ubuntu 版本
+UBUNTU_VERSION="noble"
 
 # 创建根文件系统镜像
-truncate -s 3G rootfs.img
+truncate -s 6G rootfs.img
 mkfs.ext4 rootfs.img
 mkdir rootdir
 mount -o loop rootfs.img rootdir
 
 # debootstrap生成镜像
-debootstrap --arch=arm64 $DEBIAN_VERSION rootdir https://mirrors.tuna.tsinghua.edu.cn/debian/
+debootstrap --arch=arm64 $UBUNTU_VERSION rootdir https://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/
 
 # 挂载boot
 mount -o loop xiaomi-k20pro-boot.img rootdir/boot
@@ -41,42 +41,52 @@ export DEBIAN_FRONTEND=noninteractive
 
 # 配置清华镜像源
 cat > rootdir/etc/apt/sources.list << 'EOF'
-deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free non-free-firmware
-deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free non-free-firmware
-deb http://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-backports main contrib non-free non-free-firmware
-deb http://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ noble main restricted universe multiverse
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ noble-updates main restricted universe multiverse
+deb http://mirrors.tuna.tsinghua.edu.cn/ubuntu-ports/ noble-backports main restricted universe multiverse
+deb http://ports.ubuntu.com/ubuntu-ports/ noble-security main restricted universe multiverse
 EOF
 
 # 更新系统
 chroot rootdir apt update
 chroot rootdir apt upgrade -y
 
-# 安装基础软件包
-chroot rootdir apt install -y bash-completion sudo apt-utils ssh openssh-server nano network-manager systemd-boot initramfs-tools chrony curl wget locales tzdata fonts-wqy-microhei dnsmasq iptables iproute2
-
-# 设置时区和语言
-echo "Asia/Shanghai" > rootdir/etc/timezone
-chroot rootdir ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-cat > rootdir/etc/locale.gen << 'EOF'
-en_US.UTF-8 UTF-8
-zh_CN.UTF-8 UTF-8
-EOF
-chroot rootdir locale-gen
-chroot rootdir env -u LC_ALL update-locale LANG=en_US.UTF-8 LANGUAGE=en_US:en
-
-# 配置动态语言切换（SSH使用中文，TTY使用英文）
-cat > rootdir/etc/profile.d/99-locale-fix.sh << 'EOF'
-# 如果是SSH连接，则使用中文
-if [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
-    export LANG=zh_CN.UTF-8
-	export LANGUAGE=zh_CN:zh
-    export LC_ALL=zh_CN.UTF-8
-fi
-EOF
-chmod +x rootdir/etc/profile.d/99-locale-fix.sh
+# 安装基础软件包和 Ubuntu Desktop
+chroot rootdir apt install -y bash-completion sudo apt-utils ssh openssh-server nano systemd-boot initramfs-tools chrony curl wget dnsmasq iptables iproute2 ubuntu-desktop
 
 # 安装设备特定软件包
 chroot rootdir apt install -y rmtfs protection-domain-mapper tqftpserv
+
+# 安装语言包和设置默认语言为简体中文
+chroot rootdir apt install -y locales locales-all tzdata
+chroot rootdir apt install -y \
+    fonts-arphic-uming \
+    fonts-arphic-ukai \
+    fonts-noto-cjk-extra \
+    language-pack-gnome-zh-hans \
+    language-pack-gnome-zh-hans-base \
+    language-pack-zh-hans \
+    language-pack-zh-hans-base \
+    gnome-user-docs-zh-hans \
+    libopencc-data \
+    libmarisa0 \
+    libopencc1.1 \
+    libpinyin-data \
+    libpinyin15 \
+    ibus-libpinyin \
+    ibus-table-wubi \
+    libreoffice-help-common \
+    libreoffice-l10n-zh-cn \
+    libreoffice-help-zh-cn \
+    thunderbird-locale-zh-cn \
+    thunderbird-locale-zh-hans
+	
+chroot rootdir sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen
+chroot rootdir locale-gen zh_CN.UTF-8
+chroot rootdir update-locale LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:zh
+echo "Asia/Shanghai" | tee rootdir/etc/timezone
+chroot rootdir ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+chroot rootdir dpkg-reconfigure -f noninteractive tzdata
 
 # 修改服务配置
 sed -i '/ConditionKernelVersion/d' rootdir/lib/systemd/system/pd-mapper.service
@@ -86,6 +96,7 @@ cp xiaomi-raphael-debs_$1/*-xiaomi-raphael.deb rootdir/tmp/
 chroot rootdir dpkg -i /tmp/linux-image-xiaomi-raphael.deb
 chroot rootdir dpkg -i /tmp/linux-headers-xiaomi-raphael.deb
 chroot rootdir dpkg -i /tmp/firmware-xiaomi-raphael.deb
+chroot rootdir dpkg -i /tmp/alsa-xiaomi-raphael.deb
 rm rootdir/tmp/*-xiaomi-raphael.deb
 chroot rootdir update-initramfs -c -k all
 
@@ -162,47 +173,6 @@ echo "PasswordAuthentication yes" | tee -a rootdir/etc/ssh/sshd_config
 
 # 彻底禁用系统休眠
 chroot rootdir systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-
-# 添加屏幕管理命令到全局bash配置
-cat >> rootdir/etc/bash.bashrc << 'EOF'
-# 屏幕管理命令
-leijun() {
-    if [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
-        sudo sh -c 'TERM=linux setterm --blank force </dev/tty1'
-    else
-        setterm --blank force --term linux </dev/tty1
-    fi
-    echo "屏幕已关闭"
-}
-
-jinfan() {
-    if [ -n "$SSH_CONNECTION" ] || [ -n "$SSH_TTY" ]; then
-        sudo sh -c 'TERM=linux setterm --blank poke </dev/tty1'
-    else
-        setterm --blank poke --term linux </dev/tty1
-    fi
-    echo "屏幕已开启"
-}
-EOF
-
-# 配置开机 15 秒后自动熄屏的 Systemd 服务
-cat > rootdir/etc/systemd/system/blank_screen.service << 'EOF'
-[Unit]
-Description=Auto-blank screen after 15s
-After=multi-user.target
-
-[Service]
-Type=simple
-ExecStartPre=/bin/bash -c "/usr/bin/sleep 15"
-ExecStart=sh -c 'TERM=linux setterm --blank force </dev/tty1'
-User=root
-Restart=on-failure
-RestartSec=5s
-
-[Install]
-WantedBy=multi-user.target
-EOF
-chroot rootdir systemctl enable blank_screen.service
 
 # 清理 apt 缓存
 chroot rootdir apt clean

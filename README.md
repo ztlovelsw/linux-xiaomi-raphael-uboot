@@ -7,9 +7,9 @@
 本项目包含完整的构建工具链，可用于构建适用于小米 Raphael 设备的 Linux 系统镜像，包括：
 
 - **内核编译工作流** - 自动化编译定制的 Linux 内核
-- **Debian Desktop** - 带 Phosh 桌面环境的 Debian 系统
+- **Debian Phosh** - 带 Phosh 桌面环境的 Debian 系统
 - **Debian Server** - 无图形界面的 Debian 服务器系统
-- **Ubuntu Desktop** - 带 Phosh 桌面环境的 Ubuntu 系统
+- **Ubuntu Phosh** - 带 Phosh 桌面环境的 Ubuntu 系统
 - **Ubuntu Server** - 无图形界面的 Ubuntu 服务器系统
 
 ## 📋 目前工作
@@ -42,9 +42,9 @@
    - 选择 "构建系统镜像" 工作流
    - 点击 "Run workflow"
    - 选择系统类型：
-       - `debian-desktop`：Debian 桌面版
+       - `debian-phosh`：Debian Phosh 版
        - `debian-server`：Debian 服务器版
-       - `ubuntu-desktop`：Ubuntu 桌面版
+       - `ubuntu-phosh`：Ubuntu Phosh 版
        - `ubuntu-server`：Ubuntu 服务器版
    - 内核版本号：
        - `上一步构建的内核版本号`

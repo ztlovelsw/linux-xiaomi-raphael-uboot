@@ -155,6 +155,9 @@ echo "user:1234" | chroot rootdir chpasswd
 echo "PermitRootLogin yes" | tee -a rootdir/etc/ssh/sshd_config
 echo "PasswordAuthentication yes" | tee -a rootdir/etc/ssh/sshd_config
 
+# 彻底禁用系统休眠
+chroot rootdir systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+
 # 配置 Netplan 使用 NetworkManager
 cat > rootdir/etc/netplan/01-network-manager-all.yaml << 'EOF'
 network:
