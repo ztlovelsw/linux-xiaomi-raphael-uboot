@@ -31,7 +31,7 @@ elif [[ "$SYSTEM_TYPE" == *"ubuntu-"* ]]; then
     fi
 fi
 
-DEVICE_PACKAGES="rmtfs protection-domain-mapper tqftpserv"
+DEVICE_PACKAGES="rmtfs protection-domain-mapper tqftpserv hexagonrpcd make-dynpart-mappings"
 
 if [[ "$SYSTEM_TYPE" != *"server"* ]]; then
     case "$DESKTOP_ENV" in
